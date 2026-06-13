@@ -1,9 +1,5 @@
-import makeWASocket, {
-  useMultiFileAuthState,
-  downloadMediaMessage,
-  DisconnectReason,
-  fetchLatestBaileysVersion,
-} from '@whiskeysockets/baileys';
+import baileys from '@whiskeysockets/baileys';
+const { default: makeWASocket, useMultiFileAuthState, downloadMediaMessage, DisconnectReason, fetchLatestBaileysVersion } = baileys;
 import { Boom } from '@hapi/boom';
 import pino from 'pino';
 import { uploadToDrive } from './drive.js';
