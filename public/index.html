@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WspDrive Bot</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+    :root {
+      --bg: #0e0f13;
+      --surface: #16181f;
+      --border: #252830;
+      --accent: #25d366;
+      --accent-dim: rgba(37,211,102,0.12);
+      --red: #ff4757;
+      --red-dim: rgba(255,71,87,0.12);
+      --text: #e8eaf0;
+      --muted: #6b7280;
+      --drive: #4285f4;
+      --drive-dim: rgba(66,133,244,0.12);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 16px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    header h1 {
+      font-size: 1.6rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+
+    header h1 span { color: var(--accent); }
+
+    header p {
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin-top: 6px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+      width: 100%;
+      max-width: 480px;
+      margin-bottom: 16px;
+    }
+
+    .card-title {
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 16px;
+    }
+
+    /* Status pill */
+    .status-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--muted);
+      flex-shrink: 0;
+    }
+    .dot.connected { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+    .dot.waiting { background: #f59e0b; box-shadow: 0 0 8px #f59e0b; animation: pulse 1.4s ease-in-out infinite; }
+    .dot.disconnected { background: var(--red); }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .status-label {
+      font-size: 0.95rem;
+      font-weight: 500;
+    }
+
+    /* QR */
+    #qr-section {
+      text-align: center;
+      margin-top: 20px;
+    }
+
+    #qr-section img {
+      width: 220px;
+      height: 220px;
+      border-radius: 10px;
+      background: white;
+      padding: 8px;
+    }
+
+    #qr-section p {
+      color: var(--muted);
+      font-size: 0.8rem;
+      margin-top: 10px;
+    }
+
+    /* Folder input */
+    .folder-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .folder-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--drive-dim);
+      border: 1px solid rgba(66,133,244,0.25);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.85rem;
+    }
+
+    .folder-info svg { flex-shrink: 0; }
+    .folder-name { font-weight: 500; color: var(--drive); }
+    .folder-id { color: var(--muted); font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; }
+
+    .input-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    input[type="text"] {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      padding: 10px 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input[type="text"]:focus { border-color: var(--drive); }
+    input[type="text"]::placeholder { color: var(--muted); }
+
+    button {
+      background: var(--accent);
+      color: #000;
+      border: none;
+      border-radius: 8px;
+      font-family: 'Inter', sans-serif;
+      font-weight: 600;
+      font-size: 0.82rem;
+      padding: 10px 18px;
+      cursor: pointer;
+      transition: opacity 0.2s;
+      white-space: nowrap;
+    }
+
+    button:hover { opacity: 0.85; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .hint {
+      font-size: 0.75rem;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .hint code {
+      font-family: 'JetBrains Mono', monospace;
+      background: var(--border);
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-size: 0.72rem;
+    }
+
+    /* Log */
+    .log-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 280px;
+      overflow-y: auto;
+    }
+
+    .log-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 0.82rem;
+    }
+
+    .log-item.ok { background: var(--accent-dim); }
+    .log-item.error { background: var(--red-dim); }
+
+    .log-icon { font-size: 1rem; flex-shrink: 0; }
+
+    .log-filename {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      font-weight: 500;
+      word-break: break-all;
+    }
+
+    .log-time {
+      color: var(--muted);
+      font-size: 0.72rem;
+      margin-top: 2px;
+    }
+
+    .log-link {
+      color: var(--drive);
+      font-size: 0.75rem;
+      text-decoration: none;
+    }
+
+    .empty-log {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.85rem;
+      padding: 24px 0;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 12px 20px;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      transition: transform 0.3s ease;
+      z-index: 99;
+    }
+
+    .toast.show { transform: translateX(-50%) translateY(0); }
+    .toast.success { border-color: var(--accent); color: var(--accent); }
+    .toast.error-t { border-color: var(--red); color: var(--red); }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Wsp<span>Drive</span> Bot</h1>
+  <p>WhatsApp → Google Drive automático</p>
+</header>
+
+<!-- Estado de WhatsApp -->
+<div class="card">
+  <div class="card-title">Estado de WhatsApp</div>
+  <div class="status-row">
+    <div class="dot" id="wa-dot"></div>
+    <span class="status-label" id="wa-label">Cargando...</span>
+  </div>
+  <div id="qr-section" style="display:none">
+    <img id="qr-img" src="" alt="QR WhatsApp" />
+    <p>Abre WhatsApp → Dispositivos vinculados → Vincular dispositivo</p>
+  </div>
+</div>
+
+<!-- Carpeta de Drive -->
+<div class="card">
+  <div class="card-title">Carpeta de Google Drive</div>
+  <div class="folder-group">
+    <div class="folder-info" id="folder-display" style="display:none">
+      <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
+        <path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" fill="#4285f4"/>
+      </svg>
+      <div>
+        <div class="folder-name" id="folder-name-label"></div>
+        <div class="folder-id" id="folder-id-label"></div>
+      </div>
+    </div>
+
+    <div class="input-row">
+      <input type="text" id="folder-input" placeholder="https://drive.google.com/drive/folders/..." />
+      <button id="folder-btn" onclick="saveFolder()">Guardar</button>
+    </div>
+
+    <p class="hint">
+      Pega el link de la carpeta de Drive tal cual desde el navegador.<br>
+      Tu cuenta Gmail debe tener permiso de <strong>Editor</strong> en esa carpeta.
+    </p>
+  </div>
+</div>
+
+<!-- Log de archivos subidos -->
+<div class="card">
+  <div class="card-title">Archivos subidos</div>
+  <div class="log-list" id="log-list">
+    <div class="empty-log">Aún no se han subido archivos</div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  function showToast(msg, type = 'success') {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = `toast show ${type === 'error' ? 'error-t' : 'success'}`;
+    setTimeout(() => t.className = 'toast', 2800);
+  }
+
+  function timeAgo(iso) {
+    const diff = Math.floor((Date.now() - new Date(iso)) / 1000);
+    if (diff < 60) return `hace ${diff}s`;
+    if (diff < 3600) return `hace ${Math.floor(diff/60)}m`;
+    return new Date(iso).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  async function loadStatus() {
+    try {
+      const res = await fetch('/api/status');
+      const data = await res.json();
+
+      const dot = document.getElementById('wa-dot');
+      const label = document.getElementById('wa-label');
+      const qrSection = document.getElementById('qr-section');
+
+      if (data.connected) {
+        dot.className = 'dot connected';
+        label.textContent = `Conectado · Grupo: ${data.groupName || 'todos'}`;
+        qrSection.style.display = 'none';
+      } else if (data.hasQR) {
+        dot.className = 'dot waiting';
+        label.textContent = 'Esperando escaneo de QR...';
+        qrSection.style.display = 'block';
+        loadQR();
+      } else {
+        dot.className = 'dot disconnected';
+        label.textContent = 'Desconectado — reconectando...';
+        qrSection.style.display = 'none';
+      }
+
+      // Carpeta
+      const display = document.getElementById('folder-display');
+      if (data.folderName) {
+        display.style.display = 'flex';
+        document.getElementById('folder-name-label').textContent = data.folderName;
+        document.getElementById('folder-id-label').textContent = data.folderId;
+        document.getElementById('folder-input').value = data.folderId;
+      } else {
+        display.style.display = 'none';
+      }
+
+      // Log
+      const logList = document.getElementById('log-list');
+      if (!data.log || data.log.length === 0) {
+        logList.innerHTML = '<div class="empty-log">Aún no se han subido archivos</div>';
+      } else {
+        logList.innerHTML = [...data.log].reverse().map(item => `
+          <div class="log-item ${item.status}">
+            <span class="log-icon">${item.status === 'ok' ? '✅' : '❌'}</span>
+            <div>
+              <div class="log-filename">${item.filename || item.error}</div>
+              <div class="log-time">${timeAgo(item.time)}${item.link ? ` · <a class="log-link" href="${item.link}" target="_blank">Ver en Drive</a>` : ''}</div>
+            </div>
+          </div>
+        `).join('');
+      }
+    } catch {}
+  }
+
+  async function loadQR() {
+    try {
+      const res = await fetch('/api/qr');
+      const data = await res.json();
+      if (data.qr) document.getElementById('qr-img').src = data.qr;
+    } catch {}
+  }
+
+  async function saveFolder() {
+    const url = document.getElementById('folder-input').value.trim();
+    if (!url) return;
+    const btn = document.getElementById('folder-btn');
+    btn.disabled = true;
+    btn.textContent = 'Guardando...';
+
+    try {
+      const res = await fetch('/api/folder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folderUrl: url }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showToast(`Carpeta "${data.folderName}" guardada ✓`);
+        loadStatus();
+      } else {
+        showToast(data.error || 'Error al guardar', 'error');
+      }
+    } catch {
+      showToast('Error de conexión', 'error');
+    }
+
+    btn.disabled = false;
+    btn.textContent = 'Guardar';
+  }
+
+  // Refresca cada 4 segundos
+  loadStatus();
+  setInterval(loadStatus, 4000);
+</script>
+</body>
+</html>
