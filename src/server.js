@@ -25,7 +25,7 @@ app.get('/api/status', async (req, res) => {
     hasQR: !!getQR(),
     folderId,
     folderName,
-    groupName: process.env.WA_GROUP_NAME || '',
+    groupName: (process.env.WA_GROUP_NAME || '').trim(),
     log: getLog(),
   });
 });

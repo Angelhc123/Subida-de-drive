@@ -76,7 +76,7 @@ export async function startBot() {
       const shouldReconnect =
         new Boom(lastDisconnect?.error)?.output?.statusCode !== DisconnectReason.loggedOut;
 
-      console.log('❌ Conexión cerrada. Reconectando:', shouldReconnect);
+      console.log('❌ Conexión cerrada. Error:', lastDisconnect?.error, 'Reconectando:', shouldReconnect);
       if (shouldReconnect) {
         setTimeout(() => startBot(), 3000);
       }
