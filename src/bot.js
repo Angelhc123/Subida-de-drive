@@ -87,42 +87,99 @@ export async function startBot() {
     if (type !== 'notify') return;
 
     for (const msg of messages) {
-      // Solo grupos
-      if (!msg.key.remoteJid?.endsWith('@g.us')) continue;
-      if (msg.key.fromMe) continue;
+      console.log('\n--- 📥 NUEVO MENSAJE DETECTADO ---');
+      
+      // 1. Verificar si es de un grupo
+      const isGroup = msg.key.remoteJid?.endsWith('@g.us');
+      if (!isGroup) {
+        console.log(`⚠️ Ignorado: No proviene de un grupo (remitente: ${msg.key.remoteJid}).`);
+        continue;
+      }
 
+      // 2. Verificar si es del propio bot
+      if (msg.key.fromMe) {
+        console.log('⚠️ Ignorado: Mensaje enviado por el propio bot (fromMe).');
+        continue;
+      }
+
+      // 3. Verificar el nombre del grupo
       const groupName = process.env.WA_GROUP_NAME?.trim();
-
-      // Verificar que sea el grupo correcto
       if (groupName) {
         try {
           const meta = await sock.groupMetadata(msg.key.remoteJid);
-          if (meta.subject !== groupName) continue;
-        } catch {
+          console.log(`👥 Grupo origen: "${meta.subject}"`);
+          if (meta.subject !== groupName) {
+            console.log(`⚠️ Ignorado: El nombre del grupo no coincide. Se esperaba "${groupName}" pero es "${meta.subject}".`);
+            continue;
+          }
+        } catch (err) {
+          console.log(`⚠️ Error al obtener metadata del grupo: ${err.message}`);
           continue;
         }
+      } else {
+        console.log('ℹ️ Procesando mensaje de cualquier grupo (WA_GROUP_NAME no configurado).');
       }
 
-      const msgType = Object.keys(msg.message || {})[0];
+      // 4. Desembalar mensaje si viene en contenedores como efímeros o vista única
+      let messageContent = msg.message;
+      if (!messageContent) {
+        console.log('⚠️ Ignorado: El mensaje no contiene datos (.message está vacío).');
+        continue;
+      }
+
+      if (messageContent.ephemeralMessage) {
+        console.log('ℹ️ Desembalando mensaje efímero (ephemeralMessage)...');
+        messageContent = messageContent.ephemeralMessage.message;
+      }
+      if (messageContent.viewOnceMessage) {
+        console.log('ℹ️ Desembalando mensaje de vista única (viewOnceMessage)...');
+        messageContent = messageContent.viewOnceMessage.message;
+      }
+      if (messageContent.viewOnceMessageV2) {
+        console.log('ℹ️ Desembalando mensaje de vista única V2 (viewOnceMessageV2)...');
+        messageContent = messageContent.viewOnceMessageV2.message;
+      }
+      if (messageContent.documentWithCaptionMessage) {
+        console.log('ℹ️ Desembalando documento con leyenda (documentWithCaptionMessage)...');
+        messageContent = messageContent.documentWithCaptionMessage.message;
+      }
+
+      if (!messageContent) {
+        console.log('⚠️ Ignorado: Contenido interno del mensaje vacío tras desembalar.');
+        continue;
+      }
+
+      // 5. Determinar el tipo de mensaje
+      const msgType = Object.keys(messageContent)[0];
+      console.log(`🔍 Tipo de mensaje detectado: "${msgType}"`);
+
       const mediaTypes = ['imageMessage', 'videoMessage', 'audioMessage', 'documentMessage', 'stickerMessage'];
 
-      if (!mediaTypes.includes(msgType)) continue;
+      if (!mediaTypes.includes(msgType)) {
+        console.log(`ℹ️ Ignorado: Tipo de mensaje "${msgType}" no es multimedia/archivo.`);
+        continue;
+      }
 
-      console.log(`📥 Archivo recibido: ${msgType}`);
+      console.log(`📥 Procesando archivo recibido de tipo: ${msgType}`);
 
       try {
-        const buffer = await downloadMediaMessage(msg, 'buffer', {});
-        const ext = getExtension(msgType, msg.message);
-        const docMsg = msg.message?.documentMessage;
+        const cleanMsg = { ...msg, message: messageContent };
+        console.log('⏳ Descargando archivo desde WhatsApp...');
+        const buffer = await downloadMediaMessage(cleanMsg, 'buffer', {});
+        console.log(`✅ Archivo descargado con éxito. Tamaño: ${buffer.length} bytes`);
+
+        const ext = getExtension(msgType, messageContent);
+        const docMsg = messageContent.documentMessage;
         const filename = docMsg?.fileName || `${msgType.replace('Message', '')}_${Date.now()}.${ext}`;
         const mimeType = getMimeType(msgType);
 
+        console.log(`⏳ Subiendo a Google Drive... Nombre: "${filename}", MimeType: "${mimeType}"`);
         const uploaded = await uploadToDrive({ buffer, filename, mimeType });
 
-        console.log(`✅ Subido a Drive: ${uploaded.name}`);
+        console.log(`✅ ¡Subido con éxito a Drive! ID: ${uploaded.id}, Nombre: ${uploaded.name}`);
         addLog({ status: 'ok', filename: uploaded.name, link: uploaded.webViewLink });
       } catch (err) {
-        console.error('❌ Error subiendo:', err.message);
+        console.error('❌ Error durante el procesamiento o subida:', err.stack || err.message);
         addLog({ status: 'error', filename: 'desconocido', error: err.message });
       }
     }
